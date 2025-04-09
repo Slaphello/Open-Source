@@ -1,3 +1,9 @@
+local TweenService = game:GetService("TweenService")
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CustomUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game:GetService("CoreGui")
+
 local function createButton(name, posY)  
     local button = Instance.new("TextButton")  
     button.Size = UDim2.new(0, 130, 0, 40)  
