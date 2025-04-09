@@ -1,0 +1,49 @@
+local function createButton(name, posY)  
+    local button = Instance.new("TextButton")  
+    button.Size = UDim2.new(0, 130, 0, 40)  
+    button.Position = UDim2.new(0, 0, 0, posY)  
+    button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)  
+    button.BackgroundTransparency = 0.5  
+    button.Text = name  
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)  
+    button.Font = Enum.Font.Garamond  
+    button.TextSize = 21  
+    button.TextStrokeTransparency = 0.8  
+
+    local corner = Instance.new("UICorner")  
+    corner.CornerRadius = UDim.new(0, 8)  
+    corner.Parent = button  
+
+    local clickTween = TweenService:Create(
+        button, 
+        TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+        { Size = UDim2.new(0, 135, 0, 45) }
+    )  
+    local releaseTween = TweenService:Create(
+        button, 
+        TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+        { Size = UDim2.new(0, 130, 0, 40) }
+    )  
+
+    button.MouseEnter:Connect(function()  
+        TweenService:Create(button, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(255, 150, 0) }):Play()  
+    end)  
+
+    button.MouseLeave:Connect(function()  
+        TweenService:Create(button, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(100, 100, 100) }):Play()  
+    end)  
+
+    button.MouseButton1Click:Connect(function()  
+        clickTween:Play()  
+        clickTween.Completed:Wait()  
+        releaseTween:Play()  
+    end)  
+
+    return button  
+end  
+
+local mainFrame = Instance.new("Frame")  
+mainFrame.Size = UDim2.new(0, 200, 0, 120)  
+mainFrame.Position = UDim2.new(0, 10, 0, 10)  
+mainFrame.BackgroundTransparency = 1  
+mainFrame.Parent = screenGui
