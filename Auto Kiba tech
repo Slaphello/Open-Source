@@ -1,177 +1,217 @@
---// CONFIG
-local animationIds = {
-	["rbxassetid://10503381238"] = true,
-	["rbxassetid://13379003796"] = true,
-}
-local HEIGHT_OFFSET = Vector3.new(0, 4.9, 0)
-local DETECT_RADIUS = 5.5
-local CHAOS_TIME = 0.15
-local LOCK_TIME = 0.66
-
---// SERVICES
+-- SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
-local Debris = game:GetService("Debris")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
 
---// VARIABLES
+-- CONSTANTS
+local animationIds = {
+	["rbxassetid://10503381238"] = true,
+	["rbxassetid://13379003796"] = true,
+}
+local TWEEN_HEIGHT_OFFSET = Vector3.new(0, 5, 0)
+local MAX_TARGET_DISTANCE = 15
+
+-- VARIABLES
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local currentCam = Workspace.CurrentCamera
+local aimlockConnection = nil
+local monitorConnection = nil
+local lockedTarget = nil
 
-local aimConnection, mainConnection = nil, nil
-local isTweening, onCooldown = false, false
-local lastPlayed, currentTarget = false, nil
+-- UTILS
+local function notify(message)
+	StarterGui:SetCore("SendNotification", {
+		Title = "KIBA System",
+		Text = message,
+		Duration = 2
+	})
+end
 
---// SAFE DISCONNECT
-local function safeDisconnect(conn)
+local function disconnectConnection(conn)
 	if conn then
 		conn:Disconnect()
+		conn = nil
 	end
-	return nil
+	return conn
 end
 
---// AIMLOCK FUNCTION
+-- AIMLOCK
 local function startAimlock(target)
-	aimConnection = safeDisconnect(aimConnection)
+	aimlockConnection = disconnectConnection(aimlockConnection)
+
+	local cam = Workspace.CurrentCamera
+	local character = player.Character
 	local startTime = tick()
+	local chaosDuration = 0.15
+	local lockDuration = 0.65
 
-	aimConnection = RunService.RenderStepped:Connect(function()
-		local cam = Workspace.CurrentCamera
-		if not (target and target.Parent and target:FindFirstChild("HumanoidRootPart")) then
-			aimConnection = safeDisconnect(aimConnection)
-			currentTarget = nil
-			return
-		end
+	aimlockConnection = RunService.RenderStepped:Connect(function()
+		if not target or not target.Parent or not target:FindFirstChild("HumanoidRootPart") then return end
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
-		local targetPos = target.HumanoidRootPart.Position
+		local now = tick()
 		local camPos = cam.CFrame.Position
+		local targetPos = target.HumanoidRootPart.Position
 
-		if tick() - startTime < CHAOS_TIME then
-			local offsetX = math.rad(math.random(-15, 25))
-			local offsetY = math.rad(math.random(-15, 25))
-			cam.CFrame = CFrame.new(camPos, targetPos) * CFrame.Angles(offsetY, offsetX, 0)
+		local baseCFrame = CFrame.new(camPos, targetPos)
+		if now - startTime < chaosDuration then
+			local angleX = math.rad(math.random(-15, 25))
+			local angleY = math.rad(math.random(-15, 25))
+			cam.CFrame = baseCFrame * CFrame.Angles(angleY, angleX, 0)
 		else
-			cam.CFrame = CFrame.new(camPos, targetPos)
+			cam.CFrame = baseCFrame
 		end
 
-		local char = player.Character
-		if char and char:FindFirstChild("HumanoidRootPart") then
-			char.HumanoidRootPart.CFrame = CFrame.new(
-				char.HumanoidRootPart.Position,
-				cam.CFrame.Position + cam.CFrame.LookVector
-			)
-		end
+		character.HumanoidRootPart.CFrame = CFrame.new(character.HumanoidRootPart.Position, cam.CFrame.Position + cam.CFrame.LookVector)
 	end)
 
-	task.delay(LOCK_TIME, function()
-		aimConnection = safeDisconnect(aimConnection)
-		currentTarget = nil
+	task.delay(lockDuration, function()
+		aimlockConnection = disconnectConnection(aimlockConnection)
+		lockedTarget = nil
 	end)
 end
 
---// TARGET FINDER
-local function findClosestTarget(origin)
-	local live = Workspace:FindFirstChild("Live")
-	if not live then return nil end
+-- SETUP CHARACTER
+local function setupCharacter(character)
+	monitorConnection = disconnectConnection(monitorConnection)
+	aimlockConnection = disconnectConnection(aimlockConnection)
+	lockedTarget = nil
 
-	local closest, shortest = nil, DETECT_RADIUS
-	for _, model in ipairs(live:GetChildren()) do
-		if model:IsA("Model") and model ~= character then
-			local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model:FindFirstChild("UpperTorso")
-			if root then
-				local dist = (origin.Position - root.Position).Magnitude
-				if dist < shortest then
-					shortest = dist
-					closest = model
-				end
-			end
-		end
-	end
-	return closest
-end
+	if not getgenv().KIBA_ENABLED then return end
 
---// CORE FUNCTION
-local function monitorAnimations()
-	mainConnection = safeDisconnect(mainConnection)
+	local isTweening = false
+	local lastPlaying = false
+	local cooldown = false
 
-	mainConnection = RunService.RenderStepped:Connect(function()
-		local char = player.Character
-		if not char or not char.Parent then return end
+	monitorConnection = RunService.RenderStepped:Connect(function()
+		if not character or not character.Parent then return end
 
-		local hrp = char:FindFirstChild("HumanoidRootPart")
-		local humanoid = char:FindFirstChild("Humanoid")
-		if not (hrp and humanoid) then return end
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character:FindFirstChild("Humanoid")
+		if not hrp or not humanoid then return end
 
 		local isPlaying = false
-		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-			if animationIds[track.Animation.AnimationId] then
+		for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+			if track.Animation and animationIds[track.Animation.AnimationId] then
 				isPlaying = true
 				break
 			end
 		end
 
-		if isPlaying and not isTweening and not lastPlayed and not onCooldown then
-			isTweening, lastPlayed, onCooldown = true, true, true
+		if isPlaying and not isTweening and not lastPlaying and not cooldown then
+			isTweening = true
+			lastPlaying = true
+			cooldown = true
 
 			task.spawn(function()
-				task.wait(0.19)
+				local live = Workspace:FindFirstChild("Live")
+				if not live then
+					isTweening = false
+					cooldown = false
+					return
+				end
 
-				local target = findClosestTarget(hrp)
-				if target and target:FindFirstChild("HumanoidRootPart") then
-					local targetPos = target.HumanoidRootPart.Position + HEIGHT_OFFSET
+				local nearest = nil
+				local shortest = MAX_TARGET_DISTANCE
 
-					-- Tween movement
-					local tween = TweenService:Create(hrp, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {
-						CFrame = CFrame.new(targetPos)
-					})
+				for _, model in pairs(live:GetChildren()) do
+					if model:IsA("Model") and model ~= character then
+						local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model:FindFirstChild("UpperTorso")
+						if root then
+							local dist = (hrp.Position - root.Position).Magnitude
+							if dist < shortest then
+								shortest = dist
+								nearest = model
+							end
+						end
+					end
+				end
+
+				if nearest and nearest:FindFirstChild("HumanoidRootPart") then
+					local targetPos = nearest.HumanoidRootPart.Position + TWEEN_HEIGHT_OFFSET
+
+					local tween = TweenService:Create(hrp, TweenInfo.new(0.1, Enum.EasingStyle.Linear), { CFrame = CFrame.new(targetPos) })
 					tween:Play()
 					tween.Completed:Wait()
 
-					-- Force push using BodyPosition
 					local bp = Instance.new("BodyPosition")
 					bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 					bp.P = 10000
 					bp.D = 100
 					bp.Position = targetPos
 					bp.Parent = hrp
-					Debris:AddItem(bp, 0.75)
 
-					-- Remote Fire (optional dash call)
-					local remote = char:FindFirstChild("Communicate")
+					task.delay(0.76, function()
+						if bp and bp.Parent then
+							bp:Destroy()
+						end
+					end)
+
+					local remote = character:FindFirstChild("Communicate")
 					if remote then
-						remote:FireServer({{
-							Dash = Enum.KeyCode.W,
-							Key = Enum.KeyCode.Q,
-							Goal = "KeyPress"
-						}})
+						remote:FireServer({
+							{ Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress" }
+						})
 					end
 
-					currentTarget = target
-					startAimlock(currentTarget)
+					lockedTarget = nearest
+					startAimlock(lockedTarget)
 				end
 
 				isTweening = false
 				task.delay(4, function()
-					onCooldown = false
+					cooldown = false
 				end)
 			end)
 		elseif not isPlaying then
-			lastPlayed = false
+			lastPlaying = false
 		end
 	end)
 end
 
---// CHARACTER HANDLER
-local function setupCharacter(char)
-	character = char
-	mainConnection = safeDisconnect(mainConnection)
-	aimConnection = safeDisconnect(aimConnection)
-	currentTarget = nil
-	monitorAnimations()
+-- TOGGLE SYSTEM
+local function notifyAndToggle()
+	getgenv().KIBA_ENABLED = not getgenv().KIBA_ENABLED
+	StarterGui:SetCore("SendNotification", {
+		Title = "KIBA System",
+		Text = getgenv().KIBA_ENABLED and "ENABLED" or "DISABLED",
+		Duration = 2,
+	})
+
+	if getgenv().KIBA_ENABLED and player.Character then
+		setupCharacter(player.Character)
+	else
+		monitorConnection = disconnectConnection(monitorConnection)
+		aimlockConnection = disconnectConnection(aimlockConnection)
+	end
 end
 
---// INITIALIZE
-player.CharacterAdded:Connect(setupCharacter)
-if player.Character then setupCharacter(player.Character) end
+local function disconnectConnection(conn)
+	if conn then
+		conn:Disconnect()
+		conn = nil
+	end
+	return conn
+end
+
+-- KEYBIND TOGGLE
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == getgenv().KIBA_TOGGLE_KEY then
+		notifyAndToggle()
+	end
+end)
+
+-- CHARACTER ADDED EVENT
+player.CharacterAdded:Connect(function(char)
+	if getgenv().KIBA_ENABLED then
+		setupCharacter(char)
+	end
+end)
+
+-- INITIAL SETUP
+if player.Character and getgenv().KIBA_ENABLED then
+	setupCharacter(player.Character)
+end
