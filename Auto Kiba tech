@@ -13,6 +13,8 @@ local animationIds = {
 }
 local TWEEN_HEIGHT_OFFSET = Vector3.new(0, 5, 0)
 local MAX_TARGET_DISTANCE = 15
+local DASH_SPEED = 120
+local DASH_TIME = 0.15
 
 -- VARIABLES
 local player = Players.LocalPlayer
@@ -21,11 +23,11 @@ local monitorConnection = nil
 local lockedTarget = nil
 
 -- UTILS
-local function notify(message)
+local function notify(msg)
 	StarterGui:SetCore("SendNotification", {
 		Title = "KIBA System",
-		Text = message,
-		Duration = 2
+		Text = msg,
+		Duration = 2,
 	})
 end
 
@@ -35,6 +37,42 @@ local function disconnectConnection(conn)
 		conn = nil
 	end
 	return conn
+end
+
+-- LOCAL DASH
+local function localDash(character)
+	if not character then return end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.Velocity = hrp.CFrame.LookVector * DASH_SPEED
+	bodyVelocity.MaxForce = Vector3.new(1e5, 0, 1e5)
+	bodyVelocity.P = 1e4
+	bodyVelocity.Parent = hrp
+
+	task.delay(DASH_TIME, function()
+		if bodyVelocity and bodyVelocity.Parent then
+			bodyVelocity:Destroy()
+		end
+	end)
+end
+
+-- FIRE SERVER DASH
+local function fireServerDash(character)
+	if not character then return end
+	local remote = character:FindFirstChild("Communicate")
+	if remote and remote:IsA("RemoteEvent") then
+		remote:FireServer({
+			{ Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress" }
+		})
+	end
+end
+
+-- DASH FUNCTION
+local function doDash(character)
+	localDash(character)
+	fireServerDash(character)
 end
 
 -- AIMLOCK
@@ -136,6 +174,9 @@ local function setupCharacter(character)
 					tween:Play()
 					tween.Completed:Wait()
 
+					-- ทำ Dash ทั้ง local และ server
+					doDash(character)
+
 					local bp = Instance.new("BodyPosition")
 					bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 					bp.P = 10000
@@ -148,13 +189,6 @@ local function setupCharacter(character)
 							bp:Destroy()
 						end
 					end)
-
-					local remote = character:FindFirstChild("Communicate")
-					if remote then
-						remote:FireServer({
-							{ Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress" }
-						})
-					end
 
 					lockedTarget = nearest
 					startAimlock(lockedTarget)
@@ -172,13 +206,9 @@ local function setupCharacter(character)
 end
 
 -- TOGGLE SYSTEM
-local function notifyAndToggle()
+local function toggleSystem()
 	getgenv().KIBA_ENABLED = not getgenv().KIBA_ENABLED
-	StarterGui:SetCore("SendNotification", {
-		Title = "KIBA System",
-		Text = getgenv().KIBA_ENABLED and "ENABLED" or "DISABLED",
-		Duration = 2,
-	})
+	notify("KIBA " .. (getgenv().KIBA_ENABLED and "ENABLED" or "DISABLED"))
 
 	if getgenv().KIBA_ENABLED and player.Character then
 		setupCharacter(player.Character)
@@ -188,19 +218,11 @@ local function notifyAndToggle()
 	end
 end
 
-local function disconnectConnection(conn)
-	if conn then
-		conn:Disconnect()
-		conn = nil
-	end
-	return conn
-end
-
 -- KEYBIND TOGGLE
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == getgenv().KIBA_TOGGLE_KEY then
-		notifyAndToggle()
+		toggleSystem()
 	end
 end)
 
@@ -211,7 +233,7 @@ player.CharacterAdded:Connect(function(char)
 	end
 end)
 
--- INITIAL SETUP
+-- INIT
 if player.Character and getgenv().KIBA_ENABLED then
 	setupCharacter(player.Character)
 end
