@@ -1,127 +1,165 @@
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-
-local LocalPlayer = Players.LocalPlayer
-local animationIds = {
+--// Config
+local ANIMATION_IDS = {
 	["rbxassetid://10503381238"] = true,
 	["rbxassetid://13379003796"] = true,
 }
 
 local TWEEN_OFFSET = Vector3.new(0, 4.9, 0)
-local LOCK_DURATION = 0.66
-local CHAOS_DURATION = 0.16
+local AIMLOCK_TIME = 0.66
+local CHAOS_TIME = 0.16
+local SEARCH_RADIUS = 6
 
-local aimlockConnection, systemConnection, target = nil, nil, nil
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
-local function startAimlock(targetModel)
-	if aimlockConnection then aimlockConnection:Disconnect() end
+--// Variables
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Connections = {}
+local LockedTarget = nil
 
-	local cam = Workspace.CurrentCamera
-	local myChar = LocalPlayer.Character
-	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	if not (targetModel and myRoot and cam) then return end
+--// Cleanup
+local function DisconnectAll()
+	for _, conn in ipairs(Connections) do
+		if conn and typeof(conn) == "RBXScriptConnection" then
+			conn:Disconnect()
+		end
+	end
+	table.clear(Connections)
+end
 
-	local start = tick()
+--// Aimlock Function
+local function StartAimlock(target)
+	local Root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not Root or not target or not target:FindFirstChild("HumanoidRootPart") then return end
 
-	aimlockConnection = RunService.RenderStepped:Connect(function()
-		local targetRoot = targetModel:FindFirstChild("HumanoidRootPart")
-		if not targetRoot then return end
+	local startTime = tick()
+	local conn = RunService.RenderStepped:Connect(function()
+		if not target:FindFirstChild("HumanoidRootPart") then return end
 
 		local now = tick()
-		local targetPos = targetRoot.Position
-		local camPos = cam.CFrame.Position
+		local targetPos = target.HumanoidRootPart.Position
+		local camPos = Camera.CFrame.Position
 
-		if now - start < CHAOS_DURATION then
-			local angleX = math.rad(math.random(-15, 25))
-			local angleY = math.rad(math.random(-15, 25))
-			local base = CFrame.new(camPos, targetPos)
-			cam.CFrame = base * CFrame.Angles(angleY, angleX, 0)
+		if now - startTime < CHAOS_TIME then
+			local randomX = math.rad(math.random(-15, 25))
+			local randomY = math.rad(math.random(-15, 25))
+			Camera.CFrame = CFrame.new(camPos, targetPos) * CFrame.Angles(randomY, randomX, 0)
 		else
-			cam.CFrame = CFrame.new(camPos, targetPos)
+			Camera.CFrame = CFrame.new(camPos, targetPos)
 		end
 
-		myRoot.CFrame = CFrame.new(myRoot.Position, cam.CFrame.Position + cam.CFrame.LookVector)
+		Root.CFrame = CFrame.new(Root.Position, Camera.CFrame.Position + Camera.CFrame.LookVector)
 	end)
 
-	task.delay(LOCK_DURATION, function()
-		if aimlockConnection then
-			aimlockConnection:Disconnect()
-			aimlockConnection = nil
-			target = nil
-		end
+	table.insert(Connections, conn)
+
+	task.delay(AIMLOCK_TIME, function()
+		if conn then conn:Disconnect() end
+		LockedTarget = nil
 	end)
 end
 
-local function activateSystem(character)
-	local humanoid = character:WaitForChild("Humanoid", 2)
-	local hrp = character:WaitForChild("HumanoidRootPart", 2)
-	if not humanoid or not hrp then return end
+--// Tween & Detect Animation
+local function RunSystem(character)
+	DisconnectAll()
 
-	if systemConnection then systemConnection:Disconnect() end
+	local Humanoid = character:WaitForChild("Humanoid", 2)
+	local Root = character:WaitForChild("HumanoidRootPart", 2)
+	if not Humanoid or not Root then return end
 
-	systemConnection = RunService.RenderStepped:Connect(function()
-		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-			if animationIds[track.Animation.AnimationId] then
-				local live = Workspace:FindFirstChild("Live")
-				local nearest, shortest = nil, 15
+	local isTweening = false
+	local cooldown = false
+	local playingLastFrame = false
 
-				if live then
-					for _, model in ipairs(live:GetChildren()) do
+	local conn = RunService.RenderStepped:Connect(function()
+		if not getgenv().KIBA_ENABLED then return end
+
+		local playingNow = false
+		for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+			if track.Animation and ANIMATION_IDS[track.Animation.AnimationId] then
+				playingNow = true
+				break
+			end
+		end
+
+		if playingNow and not playingLastFrame and not isTweening and not cooldown then
+			isTweening = true
+			cooldown = true
+
+			task.delay(0.18, function()
+				local closest, minDist = nil, SEARCH_RADIUS
+				local liveFolder = Workspace:FindFirstChild("Live")
+
+				if liveFolder then
+					for _, model in ipairs(liveFolder:GetChildren()) do
 						if model:IsA("Model") and model ~= character then
-							local r = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model:FindFirstChild("UpperTorso")
-							if r then
-								local dist = (hrp.Position - r.Position).Magnitude
-								if dist < shortest then
-									shortest = dist
-									nearest = model
+							local enemyRoot = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model:FindFirstChild("Head")
+							if enemyRoot then
+								local dist = (Root.Position - enemyRoot.Position).Magnitude
+								if dist < minDist then
+									minDist = dist
+									closest = model
 								end
 							end
 						end
 					end
 				end
 
-				if nearest then
-					local pos = nearest:FindFirstChild("HumanoidRootPart").Position + TWEEN_OFFSET
-					local tween = TweenService:Create(hrp, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
+				if closest and closest:FindFirstChild("HumanoidRootPart") then
+					local targetPos = closest.HumanoidRootPart.Position + TWEEN_OFFSET
+					local goalCFrame = CFrame.new(targetPos)
+
+					local tween = TweenService:Create(Root, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = goalCFrame})
 					tween:Play()
 					tween.Completed:Wait()
 
 					local bp = Instance.new("BodyPosition")
-					bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+					bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 					bp.P = 10000
 					bp.D = 100
-					bp.Position = pos
-					bp.Parent = hrp
+					bp.Position = targetPos
+					bp.Parent = Root
 
 					task.delay(0.76, function()
 						if bp then bp:Destroy() end
 					end)
 
+					-- Remote call (using table.unpack)
 					local remote = character:FindFirstChild("Communicate")
 					if remote then
-						remote:FireServer({
-							{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}
-						})
+						local data = {
+							{ Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress" }
+						}
+						remote:FireServer(table.unpack(data))
 					end
 
-					target = nearest
-					startAimlock(target)
+					LockedTarget = closest
+					StartAimlock(LockedTarget)
 				end
-				break
-			end
+
+				isTweening = false
+				task.delay(4, function() cooldown = false end)
+			end)
+		end
+
+		playingLastFrame = playingNow
+	end)
+
+	table.insert(Connections, conn)
+end
+
+--// Init
+if getgenv().KIBA_ENABLED then
+	if LocalPlayer.Character then
+		RunSystem(LocalPlayer.Character)
+	end
+	LocalPlayer.CharacterAdded:Connect(function(char)
+		if getgenv().KIBA_ENABLED then
+			RunSystem(char)
 		end
 	end)
 end
-
--- ✅ ENTRY POINT: ไม่ทำงานหากไม่ได้เปิด getgenv()
-if not getgenv().KIBA_ENABLED then return end
-
-if LocalPlayer.Character then
-	activateSystem(LocalPlayer.Character)
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-	activateSystem(char)
-end)
