@@ -1,122 +1,87 @@
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
-
+local a = game:GetService("TweenService")
+local b = game:GetService("CoreGui")
+local c = game:GetService("Players")
+local d = c.LocalPlayer;
 if setclipboard then
-    setclipboard(
-        [[
-📌 Owners: IDK HUB (mvp_kfc)
-🔗 Discord: https://discord.gg/RGQKDMkUQn
+	setclipboard([[
+📌 Owners: IDK HUB
+🔗 Discord: later
 🔗 YouTube: https://www.youtube.com/@IDK_Hub
-]]
-    )
+]])
 else
-    warn("❌ setclipboard() is not available in this environment.")
-end
-
-if CoreGui:FindFirstChild("OwnerCreditGUI") then
-    CoreGui:FindFirstChild("OwnerCreditGUI"):Destroy()
-end
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "OwnerCreditGUI"
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.IgnoreGuiInset = true
-gui.ResetOnSpawn = false
-gui.Parent = CoreGui
-
-local frame = Instance.new("Frame")
-frame.Name = "MainFrame"
-frame.AnchorPoint = Vector2.new(0.5, 0.5)
-frame.Position = UDim2.new(0.5, 0, 0.4, 0)
-frame.BackgroundTransparency = 1
-frame.Size = UDim2.new(0, 520, 0, 0)
-frame.AutomaticSize = Enum.AutomaticSize.Y
-frame.Parent = gui
-
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.VerticalAlignment = Enum.VerticalAlignment.Center
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.Padding = UDim.new(0, 8)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = frame
-
-local function createLabel(text)
-    local label = Instance.new("TextLabel")
-    label.AutomaticSize = Enum.AutomaticSize.Y
-    label.Size = UDim2.new(1, -40, 0, 0)
-    label.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Text = text
-    label.TextSize = 18
-    label.Font = Enum.Font.GothamSemibold
-    label.TextWrapped = true
-    label.BackgroundTransparency = 1
-    label.TextTransparency = 1
-    label.ClipsDescendants = true
-    label.ZIndex = 10
-    label.Parent = frame
-
-    Instance.new("UICorner", label).CornerRadius = UDim.new(0, 10)
-
-    local stroke = Instance.new("UIStroke", label)
-    stroke.Color = Color3.fromRGB(255, 255, 255)
-    stroke.Thickness = 1.5
-    stroke.Transparency = 1
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-    return label, stroke
-end
-
-local creditLabel, stroke1 = createLabel("📋 Owner credit copied to clipboard!")
-local noticeLabel, stroke2 =
-    createLabel("⚠️ Script made by IDK Hub (mvp_kfc) — NOT KIBAZHUB or tuankietlac12345 (YQANTG)")
-
-local function fadeIn(label, stroke)
-    TweenService:Create(
-        label,
-        TweenInfo.new(0.4),
-        {
-            BackgroundTransparency = 0.3,
-            TextTransparency = 0
-        }
-    ):Play()
-    TweenService:Create(
-        stroke,
-        TweenInfo.new(0.4),
-        {
-            Transparency = 0.25
-        }
-    ):Play()
-end
-
-fadeIn(creditLabel, stroke1)
-fadeIn(noticeLabel, stroke2)
-
+	warn("setclipboard() is not available in this shit.")
+end;
+if b:FindFirstChild("CreditGUI") then
+	b:FindFirstChild("CreditGUI"):Destroy()
+end;
+local e = Instance.new("ScreenGui")
+e.Name = "CreditGUI"
+e.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
+e.IgnoreGuiInset = true;
+e.ResetOnSpawn = false;
+e.Parent = b;
+local f = Instance.new("Frame")
+f.Name = "MainFrame"
+f.AnchorPoint = Vector2.new(0.5, 0.5)
+f.Position = UDim2.new(0.5, 0, 0.4, 0)
+f.BackgroundTransparency = 1;
+f.Size = UDim2.new(0, 520, 0, 0)
+f.AutomaticSize = Enum.AutomaticSize.Y;
+f.Parent = e;
+local g = Instance.new("UIListLayout")
+g.FillDirection = Enum.FillDirection.Vertical;
+g.VerticalAlignment = Enum.VerticalAlignment.Center;
+g.HorizontalAlignment = Enum.HorizontalAlignment.Center;
+g.Padding = UDim.new(0, 8)
+g.SortOrder = Enum.SortOrder.LayoutOrder;
+g.Parent = f;
+local function h(i)
+	local j = Instance.new("TextLabel")
+	j.AutomaticSize = Enum.AutomaticSize.Y;
+	j.Size = UDim2.new(1, - 40, 0, 0)
+	j.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	j.TextColor3 = Color3.fromRGB(255, 255, 255)
+	j.Text = i;
+	j.TextSize = 18;
+	j.Font = Enum.Font.GothamSemibold;
+	j.TextWrapped = true;
+	j.BackgroundTransparency = 1;
+	j.TextTransparency = 1;
+	j.ClipsDescendants = true;
+	j.ZIndex = 10;
+	j.Parent = f;
+	Instance.new("UICorner", j).CornerRadius = UDim.new(0, 10)
+	local k = Instance.new("UIStroke", j)
+	k.Color = Color3.fromRGB(255, 255, 255)
+	k.Thickness = 1.5;
+	k.Transparency = 1;
+	k.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+	return j, k
+end;
+local l, m = h("Owner credit copied to clipboard!")
+local n, o = h("Script made by IDK Hub")
+local function p(j, k)
+	a:Create(j, TweenInfo.new(0.4), {
+		BackgroundTransparency = 0.3,
+		TextTransparency = 0
+	}):Play()
+	a:Create(k, TweenInfo.new(0.4), {
+		Transparency = 0.25
+	}):Play()
+end;
+p(l, m)
+p(n, o)
 task.wait(3.5)
-
-local function fadeOut(label, stroke)
-    TweenService:Create(
-        label,
-        TweenInfo.new(0.5),
-        {
-            BackgroundTransparency = 1,
-            TextTransparency = 1
-        }
-    ):Play()
-    TweenService:Create(
-        stroke,
-        TweenInfo.new(0.5),
-        {
-            Transparency = 1
-        }
-    ):Play()
-end
-
-fadeOut(creditLabel, stroke1)
-fadeOut(noticeLabel, stroke2)
-
+local function q(j, k)
+	a:Create(j, TweenInfo.new(0.5), {
+		BackgroundTransparency = 1,
+		TextTransparency = 1
+	}):Play()
+	a:Create(k, TweenInfo.new(0.5), {
+		Transparency = 1
+	}):Play()
+end;
+q(l, m)
+q(n, o)
 task.wait(0.6)
-gui:Destroy()
+e:Destroy()
