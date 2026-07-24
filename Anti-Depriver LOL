@@ -1,0 +1,11 @@
+local a = cloneref(game:GetService("Players"))
+local b = a.LocalPlayer:WaitForChild("PlayerGui")
+local c = b:FindFirstChild("ChustUI")
+if c then
+	c:Destroy()
+end;
+b.ChildAdded:Connect(function(d)
+	if d.Name == "ChustUI" then
+		d:Destroy()
+	end
+end)
