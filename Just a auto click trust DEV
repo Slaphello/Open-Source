@@ -1,1 +1,34 @@
-local a=cloneref(game:GetService("CollectionService"))local b=cloneref(game:GetService("Players"))local c=cloneref(game:GetService("RunService"))local d=b.LocalPlayer:WaitForChild("PlayerGui")local e=workspace:WaitForChild("Shootable")local f=d:FindFirstChild("CrosshairUI")d.ChildAdded:Connect(function(g)if g.Name=="CrosshairUI"then f=g end end)task.spawn(function()while true do c.RenderStepped:Wait()if not f then continue end;local h=f:FindFirstChild("ShootEvent")if not h then continue end;local i=f:FindFirstChild("HitSound")for j,k in ipairs(e:GetChildren())do if not a:HasTag(k,"Target")then continue end;h:FireServer(k)if i then i.PlaybackSpeed=1.5;i:Play()end end end end)
+local a = cloneref(game:GetService("CollectionService"))
+local b = cloneref(game:GetService("Players"))
+local c = cloneref(game:GetService("RunService"))
+local d = b.LocalPlayer:WaitForChild("PlayerGui")
+local e = workspace:WaitForChild("Shootable")
+local f = d:FindFirstChild("CrosshairUI")
+d.ChildAdded:Connect(function(g)
+	if g.Name == "CrosshairUI" then
+		f = g
+	end
+end)
+task.spawn(function()
+	while true do
+		c.RenderStepped:Wait()
+		if not f then
+			continue
+		end;
+		local h = f:FindFirstChild("ShootEvent")
+		if not h then
+			continue
+		end;
+		local i = f:FindFirstChild("HitSound")
+		for j, k in ipairs(e:GetChildren()) do
+			if not a:HasTag(k, "Target") then
+				continue
+			end;
+			h:FireServer(k)
+			if i then
+				i.PlaybackSpeed = 1.5;
+				i:Play()
+			end
+		end
+	end
+end)
